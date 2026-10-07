@@ -306,14 +306,14 @@ have no result in this conversation). Each is `{ "env", "requires_verified_env",
 4. Release did not complete: `deploy_status: error` with a release kind, on a `previewing` session (the release took
    the preview's content) or a `merged` session (it took a checked merge). The destination is unchanged. Show
    `last_build_error`, then by `build_error_kind`:
-   - `release_held`: a release pull request waits for a human in Azure DevOps. Give `held_pr_url`; when it is null,
+   - `release_held`: a release pull request waits for a human in the git host. Give `held_pr_url`; when it is null,
      ask a Beezi superadmin to find the open release pull request. While it is open this session cannot be changed
      or promoted. `previewing`: offer "Cancel draft" (abandons the pull request) or "Stop here". `merged`: stop.
      Never offer "Needs changes" here (a re-cut abandons that pull request).
    - `release_conflict`: the destination changed while the release ran. `previewing`: offer "Rebuild on the current
      tip" and "Stop here"; on "Rebuild on the current tip", call `update_draft` with `ref`, `base_revision`,
      `recut: true` and a new key, then go back to the preview loop and step 1. `merged`: a Beezi superadmin must
-     resolve the conflict by hand in Azure DevOps; the session stays `merged`. Stop. Once it is resolved, ask again
+     resolve the conflict by hand in the git host; the session stays `merged`. Stop. Once it is resolved, ask again
      with the session's `allowed_destinations` (step 3, last paragraph).
    - `release_timeout`: the release build ran out of time. `previewing`: call `update_draft` with only `ref`,
      `base_revision` and a new key (no content changes), then go back to the preview loop and step 1. Do not change
@@ -335,7 +335,7 @@ have no result in this conversation). Each is `{ "env", "requires_verified_env",
    `merged` or `completed`, so report it from the same result without checking again:
    - a `merges` entry with `kind: "sync"` and that `env`: the posts were also copied there; give its links.
    - `build_error_kind: sync_failed`: the destination is done, but the copy failed. Show `last_build_error` and give
-     `held_pr_url` when set; a Beezi superadmin must complete or fix it in Azure DevOps so both environments match.
+     `held_pr_url` when set; a Beezi superadmin must complete or fix it in the git host so both environments match.
      Do not retry. The status does not change.
    - neither: say the copy result is unknown and ask a Beezi superadmin to check that environment.
 
@@ -368,7 +368,7 @@ without the user's answer. `allowed_destinations` is empty and `update_draft` re
      `last_build_error` before promoting again; continue at "Approval and promotion" 3.2, where "Needs changes" fixes
      the posts.
    - `deploy_failed` with `build_error_kind: revert_held`: a branch policy holds the revert pull request. Give
-     `held_pr_url` (when it is null, ask a Beezi superadmin to find the open revert pull request in Azure DevOps) and
+     `held_pr_url` (when it is null, ask a Beezi superadmin to find the open revert pull request in the git host) and
      stop. Once a human completed or abandoned it, ask the step 2 question again (`revert_merge` finishes a completed
      revert); `INVALID_STATE` with `details.pr_url` means it is still open.
    - `deploy_failed` with `build_error_kind: revert_failed`: the revert did not complete. Show `last_build_error` and
@@ -421,7 +421,7 @@ turns"). Retry only codes with `retryable: true`, at most twice, with the same k
 | `SLUG_LOCKED` | Call `list_my_sessions`. If `details.session_id` is yours, offer to continue it (see "Sessions found later") or cancel it. Otherwise say who holds the slug in `details.slug` (`details.author`, `details.status`) and stop. |
 | `SESSION_NOT_FOUND` | Ask for the preview link or the slug. |
 | `SESSION_BUSY` | Another operation on this session is running; check again next turn. |
-| `INVALID_STATE` with `details.pr_url` | From `rerun_deploy` or `revert_merge`: the revert pull request of this session is still open; handle it as `revert_held` in "Deploy failed" step 3. Otherwise a release pull request of this session is open for a human. Give the link (if there is no URL, ask a Beezi superadmin to find the open release pull request in Azure DevOps) and offer "Cancel draft" (abandons the pull request) or "Stop here". Do not retry `update_draft` or `promote`. |
+| `INVALID_STATE` with `details.pr_url` | From `rerun_deploy` or `revert_merge`: the revert pull request of this session is still open; handle it as `revert_held` in "Deploy failed" step 3. Otherwise a release pull request of this session is open for a human. Give the link (if there is no URL, ask a Beezi superadmin to find the open release pull request in the git host) and offer "Cancel draft" (abandons the pull request) or "Stop here". Do not retry `update_draft` or `promote`. |
 | `INVALID_STATE` with `details.env` | From `promote`: this revision is already merged into `details.env`; call `get_session` and offer only its `allowed_destinations`. From `mark_verified`: no destination of this session's source needs a check on `details.env` (`details.source_env`), or the revision has no open merge there; call `get_session` and use its `verify_envs`. |
 | `INVALID_STATE` | Call `get_session`, explain what `details.status` allows. `posts_add`, `posts_add_existing`, `posts_delete` and `posts_remove` need a session in `draft` or `previewing` that was not merged into an environment (no `merges` entry with `kind: "promote"` and `reverted: false`). A refused `posts_add`, `posts_add_existing` or `posts_delete`: the post starts a new session. A refused `posts_remove`: offer to keep the post, or "Cancel draft" (what is already merged stays). With `details.slug` naming a `delete` post, `posts_update` was sent for it: leave it out, or take the post out with `posts_remove` to keep it published. `update_draft` on a `deploying`, `reverting` or `deploy_failed` session: follow "Sessions found later" for that status. From `rerun_deploy` with `details.paths`: this session's files on `deploy_env` no longer match its merge, so a rerun would not deploy it; offer "Revert and fix" (finishes the revert) or "Leave it". |
 | `STALE_REVISION` | Call `get_session` with `include_files: true`, take each post's current content from `files` by `slug` (skip entries with `removed: true`), re-apply the edit with `details.current_revision`, resend once with a new key. |
@@ -429,14 +429,14 @@ turns"). Retry only codes with `retryable: true`, at most twice, with the same k
 | `ASSET_FETCH_FAILED` | Retry once; then ask for another public https link (`details.reason`). |
 | `PAYLOAD_TOO_LARGE` | Send fewer or smaller assets, or shorten the page. |
 | `BRANCH_MOVED` | Someone changed the preview branch by hand; this session cannot continue. Stop. |
-| `MERGE_CONFLICT` | From `promote` on a `previewing` session: call `update_draft` with `ref`, `base_revision`, `recut: true` and a new key, check the preview build, then ask for approval again. From `promote` on a `merged` session (a destination that needs a check): a Beezi superadmin must resolve the conflict by hand in Azure DevOps; the session stays `merged`. Stop. From `revert_merge`: the environment moved during the revert; show it and offer "Revert and fix" again (rebuilds the revert on the current tip) or "Leave it". |
-| `MERGE_BLOCKED_BY_POLICY` | Give `details.pr_url`; a reviewer must complete the pull request in Azure DevOps. Stop. |
+| `MERGE_CONFLICT` | From `promote` on a `previewing` session: call `update_draft` with `ref`, `base_revision`, `recut: true` and a new key, check the preview build, then ask for approval again. From `promote` on a `merged` session (a destination that needs a check): a Beezi superadmin must resolve the conflict by hand in the git host; the session stays `merged`. Stop. From `revert_merge`: the environment moved during the revert; show it and offer "Revert and fix" again (rebuilds the revert on the current tip) or "Leave it". |
+| `MERGE_BLOCKED_BY_POLICY` | Give `details.pr_url`; a reviewer must complete the pull request in the git host. Stop. |
 | `build_error_kind` (a session field, not an error code) | `preview_timeout`: re-queue ("Checking a build", preview build). `preview_failed`: preview loop step 3. A release kind: "Approval and promotion" 4. `env_deploy_failed`, `deploy_gate_timeout`, `revert_held`, `revert_failed`: "Deploy failed". `reverted`: fix the cause in `last_build_error` (its kind is `reverted_from_kind`) before promoting again. `sync_failed`: "Approval and promotion" 5; do not retry. |
 | `RELEASE_DIFF_UNEXPECTED` | The release or a revert would touch files outside this session's posts; it was stopped and the environment is unchanged. Tell the user to ask a Beezi superadmin to check the release branch. Stop. |
 | `DEPLOY_FAILED` (the error code, not the status `deploy_failed`) | The preview build failed. Show `details.excerpt`, fix the page, `update_draft`. |
 | `DEPLOY_TIMEOUT` (the error code) | The preview build ran out of time. Re-queue with `update_draft` carrying no content changes (see "Checking a build"). Do not change the page. |
 | `INTERNAL_ERROR` | Show `message` and any correlation id in `details`; do not retry. Stop. |
 | `INVALID_PREVIEW_URL`, `DEPLOYMENT_NOT_FOUND` | Ask for the slug instead. |
-| `UPSTREAM_AUTH_FAILED` | "Publishing is blocked: the <`details.service`> token was rejected. Ask a Beezi superadmin to replace it on the Landing Plugin page." Stop. |
+| `UPSTREAM_AUTH_FAILED` | "Publishing is blocked: the <service> token was rejected. Ask a Beezi superadmin to replace it on the Landing Plugin page." Stop. <service> is the name for `details.service`: `ado` is Azure DevOps, `github` is GitHub, `vercel` is Vercel. |
 | `UPSTREAM_UNAVAILABLE`, `RATE_LIMITED` | Retry as above. `RATE_LIMITED` from `request_asset_upload` with no retry time: you hold too many uploads; reuse the `upload_id`s you have or wait. |
 | `IDEMPOTENCY_KEY_REUSED` | Make a new key and resend once. |
