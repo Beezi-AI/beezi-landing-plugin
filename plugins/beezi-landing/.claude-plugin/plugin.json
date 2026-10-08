@@ -1,0 +1,9 @@
+{
+    "name": "beezi-landing",
+    "description": "Create, update and delete blog posts and case studies on the Beezi landing site, with preview links, then publishing along the landing promotion rules (checked where a rule asks). Beezi superadmins only.",
+    "version": "1.3.2",
+    "author": {
+        "name": "Beezi"
+    },
+    "icon": "./assets/beezi_logo.svg"
+}

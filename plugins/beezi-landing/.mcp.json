@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "beezi-landing": {
+            "type": "http",
+            "url": "https://beezi-api-prod.azurewebsites.net/api/mcp/landing"
+        }
+    }
+}
