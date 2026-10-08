@@ -436,7 +436,8 @@ turns"). Retry only codes with `retryable: true`, at most twice, with the same k
 | `DEPLOY_FAILED` (the error code, not the status `deploy_failed`) | The preview build failed. Show `details.excerpt`, fix the page, `update_draft`. |
 | `DEPLOY_TIMEOUT` (the error code) | The preview build ran out of time. Re-queue with `update_draft` carrying no content changes (see "Checking a build"). Do not change the page. |
 | `INTERNAL_ERROR` | Show `message` and any correlation id in `details`; do not retry. Stop. |
+| `TRANSIENT_ERROR` | A temporary server error that stopped before the git repository changed. Retry as above. If the retries fail too, show `message` and `details.correlation_id`. Stop. |
 | `INVALID_PREVIEW_URL`, `DEPLOYMENT_NOT_FOUND` | Ask for the slug instead. |
 | `UPSTREAM_AUTH_FAILED` | "Publishing is blocked: the <service> token was rejected. Ask a Beezi superadmin to replace it on the Landing Plugin page." Stop. <service> is the name for `details.service`: `ado` is Azure DevOps, `github` is GitHub, `vercel` is Vercel. |
-| `UPSTREAM_UNAVAILABLE`, `RATE_LIMITED` | Retry as above. `RATE_LIMITED` from `request_asset_upload` with no retry time: you hold too many uploads; reuse the `upload_id`s you have or wait. |
+| `UPSTREAM_UNAVAILABLE`, `RATE_LIMITED` | With `retryable: true`, retry as above. With `retryable: false`, follow `nextAction`, or show `message` and stop. `RATE_LIMITED` from `request_asset_upload` with no retry time: you hold too many uploads; reuse the `upload_id`s you have or wait. |
 | `IDEMPOTENCY_KEY_REUSED` | Make a new key and resend once. |
